@@ -1,4 +1,3 @@
-import Daemon from './Characters/Daemon.js';
 /**
  * Generates random characters
  *
@@ -30,9 +29,6 @@ export function generateTeam(allowedTypes, maxLevel, characterCount) {
   const chars = [];
   for (let i = 0; i < characterCount; i += 1) {
     chars.push(characterGenerator(allowedTypes, maxLevel).next().value);
-  }
-  for (let i = 0; i < characterCount; i += 1) {
-    chars.push(characterGenerator([Daemon], maxLevel).next().value);
   }
   return chars;
 }

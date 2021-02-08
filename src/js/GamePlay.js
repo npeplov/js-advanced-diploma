@@ -1,5 +1,7 @@
+/* eslint-disable no-mixed-operators */
 import Bowman from './Characters/Bowman.js';
 import Swordsman from './Characters/Swordsman.js';
+import Team from './Team.js';
 
 import { calcHealthLevel, calcTileType } from './utils.js';
 import { generateTeam, positionGenerator } from './generators.js';
@@ -17,6 +19,9 @@ export default class GamePlay {
     this.newGameListeners = [];
     this.saveGameListeners = [];
     this.loadGameListeners = [];
+    this.positionedCharsArr = [];
+    this.current = undefined;
+    this.positions = [];
   }
 
   bindToDOM(container) {
@@ -80,6 +85,7 @@ export default class GamePlay {
 
     for (const position of positions) {
       const cellEl = this.boardEl.children[position.position];
+
       const charEl = document.createElement('div');
       charEl.classList.add('character', position.character.type);
 
@@ -153,32 +159,44 @@ export default class GamePlay {
   onCellEnter(event) {
     event.preventDefault();
     const index = this.cells.indexOf(event.currentTarget);
-    this.cellEnterListeners.forEach((o) => o.call(null, index));
+    this.cellEnterListeners.forEach((o) => o.call(this, index));
   }
 
   onCellLeave(event) {
     event.preventDefault();
     const index = this.cells.indexOf(event.currentTarget);
-    this.cellLeaveListeners.forEach((o) => o.call(null, index));
+    this.cellLeaveListeners.forEach((o) => o.call(this, index));
   }
 
   onCellClick(event) {
     const index = this.cells.indexOf(event.currentTarget);
-    this.cellClickListeners.forEach((o) => o.call(null, index));
+    this.cellClickListeners.forEach((o) => o.call(this, index));
   }
 
   onNewGameClick(event) {
     event.preventDefault();
-    const team = generateTeam([Bowman, Swordsman], 1, 2);
-    const positionedCharsArr = [];
-    const pos = positionGenerator(1);
-    for (let i = 0; i < team.length; i += 1) {
-      const posChar = new PositionedCharacter(new team[i].Char(team[i].lvl), pos.next().value);
-      positionedCharsArr.push(posChar);
+    this.positionedCharsArr = [];
+    this.current = undefined;
+    this.positions = [];
+    for (let i = 0; i < this.boardSize ** 2; i += 1) {
+      this.deselectCell(i);
     }
 
-    this.redrawPositions(positionedCharsArr);
+    const player = new Team(generateTeam([Bowman, Swordsman], 1, 2));
+    const pos = positionGenerator(1);
+    const arr = [];
 
+    let i = 0;
+    while (i < player.chars.length) {
+      const plChar = new player.chars[i].Char(player.chars[i].lvl);
+      const posChar = new PositionedCharacter(plChar, pos.next().value);
+      this.positionedCharsArr.push(posChar);
+      arr.push(this.positionedCharsArr[i].position);
+      i += 1;
+    }
+
+    this.positions = arr;
+    this.redrawPositions(this.positionedCharsArr);
     this.newGameListeners.forEach((o) => o.call(null));
   }
 
@@ -201,7 +219,6 @@ export default class GamePlay {
   }
 
   selectCell(index, color = 'yellow') {
-    this.deselectCell(index);
     this.cells[index].classList.add('selected', `selected-${color}`);
   }
 
@@ -242,5 +259,39 @@ export default class GamePlay {
     if (this.container === null) {
       throw new Error('GamePlay not bind to DOM');
     }
+  }
+
+  checkMovePossibility(index, range) {
+    if (this.positions.includes(index)) return false;
+
+    const target = {
+      x: index % 8,
+      y: (index - (index % 8)) / 8,
+    };
+    const selected = {
+      x: this.current.cell % 8,
+      y: (this.current.cell - (this.current.cell % 8)) / 8,
+    };
+
+    const difx = Math.abs(target.x - selected.x);
+    const dify = Math.abs(target.y - selected.y);
+
+    if ((difx <= range) && (target.y === selected.y)
+    || (dify <= range) && (target.x === selected.x)
+    || (difx === dify) && (difx <= range)) {
+      return true;
+    }
+    return false;
+  }
+
+  checkAttackPossibility(index, range) {
+    if (this.positions.includes(index)) return false;
+
+    if (index === range) {
+      console.log(index, range);
+      return true;
+    }
+
+    return false;
   }
 }
