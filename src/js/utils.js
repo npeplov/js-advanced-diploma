@@ -7,9 +7,6 @@ export function calcTileType(index, boardSize) {
   if ((index % boardSize) === 0) return 'left';
   if (((index - 7) % 8) === 0) return 'right';
   if (index > 54) return 'bottom';
-
-  // if ((index % boardSize) === 0) return 'left';
-
   return 'center';
 }
 

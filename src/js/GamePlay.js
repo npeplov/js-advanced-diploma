@@ -1,11 +1,13 @@
 /* eslint-disable no-mixed-operators */
 import Bowman from './Characters/Bowman.js';
 import Swordsman from './Characters/Swordsman.js';
+import Daemon from './Characters/Daemon.js';
 import Team from './Team.js';
 
 import { calcHealthLevel, calcTileType } from './utils.js';
 import { generateTeam, positionGenerator } from './generators.js';
 import PositionedCharacter from './PositionedCharacter.js';
+import GameState from './GameState.js';
 
 export default class GamePlay {
   constructor() {
@@ -19,9 +21,8 @@ export default class GamePlay {
     this.newGameListeners = [];
     this.saveGameListeners = [];
     this.loadGameListeners = [];
-    this.positionedCharsArr = [];
     this.current = undefined;
-    this.positions = [];
+    this.gameState = new GameState();
   }
 
   bindToDOM(container) {
@@ -177,25 +178,30 @@ export default class GamePlay {
     event.preventDefault();
     this.positionedCharsArr = [];
     this.current = undefined;
-    this.positions = [];
     for (let i = 0; i < this.boardSize ** 2; i += 1) {
       this.deselectCell(i);
     }
 
     const player = new Team(generateTeam([Bowman, Swordsman], 1, 2));
+    const comp = new Team(generateTeam([Daemon], 1, 2));
     const pos = positionGenerator(1);
-    const arr = [];
 
-    let i = 0;
-    while (i < player.chars.length) {
+    for (let i = 0; i < player.chars.length; i += 1) {
       const plChar = new player.chars[i].Char(player.chars[i].lvl);
       const posChar = new PositionedCharacter(plChar, pos.next().value);
       this.positionedCharsArr.push(posChar);
-      arr.push(this.positionedCharsArr[i].position);
-      i += 1;
+      this.gameState.from({
+        character: posChar.character, position: posChar.position, plPositions: posChar.position,
+      });
     }
 
-    this.positions = arr;
+    for (let i = 0; i < comp.chars.length; i += 1) {
+      const cmpChar = new comp.chars[i].Char(comp.chars[i].lvl);
+      const posChar = new PositionedCharacter(cmpChar, pos.next().value);
+      this.positionedCharsArr.push(posChar);
+      this.gameState.from(posChar);
+    }
+
     this.redrawPositions(this.positionedCharsArr);
     this.newGameListeners.forEach((o) => o.call(null));
   }
@@ -262,7 +268,7 @@ export default class GamePlay {
   }
 
   checkMovePossibility(index, range) {
-    if (this.positions.includes(index)) return false;
+    if (this.gameState.positions.includes(index)) return false;
 
     const target = {
       x: index % 8,
@@ -285,13 +291,12 @@ export default class GamePlay {
   }
 
   checkAttackPossibility(index, range) {
-    if (this.positions.includes(index)) return false;
+    if (this.gameState.positions.includes(index)) return false;
 
     if (index === range) {
       console.log(index, range);
       return true;
     }
-
     return false;
   }
 }
