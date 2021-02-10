@@ -23,6 +23,7 @@ export default class GamePlay {
     this.loadGameListeners = [];
     this.current = undefined;
     this.gameState = new GameState();
+    this.playersChars = ['bowman', 'swordsman', 'magician'];
   }
 
   bindToDOM(container) {
@@ -82,6 +83,8 @@ export default class GamePlay {
   redrawPositions(positions) {
     for (const cell of this.cells) {
       cell.innerHTML = '';
+      const index = this.cells.indexOf(cell);
+      this.deselectCell(index);
     }
 
     for (const position of positions) {
@@ -190,9 +193,7 @@ export default class GamePlay {
       const plChar = new player.chars[i].Char(player.chars[i].lvl);
       const posChar = new PositionedCharacter(plChar, pos.next().value);
       this.positionedCharsArr.push(posChar);
-      this.gameState.from({
-        character: posChar.character, position: posChar.position, plPositions: posChar.position,
-      });
+      this.gameState.from(posChar);
     }
 
     for (let i = 0; i < comp.chars.length; i += 1) {
@@ -201,6 +202,7 @@ export default class GamePlay {
       this.positionedCharsArr.push(posChar);
       this.gameState.from(posChar);
     }
+    console.log(this.gameState);
 
     this.redrawPositions(this.positionedCharsArr);
     this.newGameListeners.forEach((o) => o.call(null));
@@ -268,7 +270,11 @@ export default class GamePlay {
   }
 
   checkMovePossibility(index, range) {
-    if (this.gameState.positions.includes(index)) return false;
+    const clickedCharInd = this.gameState.chars.findIndex((elem) => {
+      const { position, character } = elem;
+      return (this.playersChars.includes(character.type) && position === index);
+    });
+    if (!clickedCharInd) return false;
 
     const target = {
       x: index % 8,
@@ -291,7 +297,11 @@ export default class GamePlay {
   }
 
   checkAttackPossibility(index, range) {
-    if (this.gameState.positions.includes(index)) return false;
+    const clickedCharInd = this.gameState.chars.findIndex((elem) => {
+      const { position, character } = elem;
+      return (this.playersChars.includes(character.type) && position === index);
+    });
+    if (!clickedCharInd) return false;
 
     if (index === range) {
       console.log(index, range);

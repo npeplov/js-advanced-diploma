@@ -19,20 +19,49 @@ export default class GameController {
 
   onCellClick(index) {
     // 9. Выбор персонажа
-    const charInd = this.gameState.plPositions.findIndex((elem) => elem === index);
-    if (charInd !== -1) {
+    // проверка - был ли клик по чару игрока. если да - запомнить его индекс в массиве
+    const clickedCharInd = this.gameState.chars.findIndex((elem) => {
+      const { position, character } = elem;
+      return (this.playersChars.includes(character.type) && position === index);
+    });
+
+    if (clickedCharInd !== -1) {
       this.selectCell(index);
       if (this.current) this.deselectCell(this.current.cell);
-      this.current = { type: this.gameState.chars[charInd].type, cell: index };
+      this.current = {
+        type: this.gameState.chars[clickedCharInd].character.type,
+        cell: index,
+        charInd: clickedCharInd,
+      };
     }
+
+    /*
+    if (this.current.type === 'bowman') {
+      const { charInd } = this.current;
+
+      // 10.2 Проверка на допустимость передвижения
+      const canGo = this.checkMovePossibility(index, 2);
+      if (canGo) {
+        this.gameState.positions[charInd] = index;
+        this.current.cell = index;
+        const positionedCharsArr = [];
+        for (let i = 0; i < this.gameState.chars.length; i += 1) {
+          positionedCharsArr.push(new PositionedCharacter(
+            this.gameState.chars[i], this.gameState.positions[i],
+          ));
+        }
+        this.current = undefined;
+        this.redrawPositions(positionedCharsArr);
+      }
+    } */
   }
 
   onCellEnter(index) {
     // 8. Вывод информации о персонаже 🎖1 ⚔10 🛡40 ❤50
 
-    const charInd = this.gameState.positions.findIndex((elem) => elem === index);
+    const charInd = this.gameState.chars.findIndex((elem) => elem.position === index);
     if (charInd !== -1) {
-      const element = this.gameState.chars[charInd];
+      const element = this.gameState.chars[charInd].character;
       this.showCellTooltip(`
       🎖 ${element.level} ⚔${element.attack} 🛡 ${element.defense} ❤ ${element.health}
       `, index);
@@ -51,16 +80,16 @@ export default class GameController {
       // 10.3 Проверка на допустимость атаки
       const canAttack = this.checkAttackPossibility(index, 5);
       if (canAttack) {
-        this.cells[index].style.cursor = cursors.crosshair;
+        this.setCursor(cursors.crosshair);
         this.selectCell(index, 'red');
       }
-      if (this.gameState.plPositions.includes(index)) {
-        this.setCursor(cursors.auto);
-        return;
-      }
+      // if (this.gameState.plPositions.includes(index)) {
+      //   this.setCursor(cursors.auto);
+      //   return;
+      // }
 
       // 10.4 Проверка на недопустимое действие
-      if (!canAttack && !canGo) this.setCursor(cursors.notallowed);
+      // if (!canAttack && !canGo) this.setCursor(cursors.notallowed);
     }
 
     if (this.current.type === 'swordsman') {
@@ -74,13 +103,13 @@ export default class GameController {
       // 10.3 Проверка на допустимость атаки
       const canAttack = this.checkAttackPossibility(index, 5);
       if (canAttack) {
-        this.cells[index].style.cursor = cursors.crosshair;
+        this.setCursor(cursors.crosshair);
         this.selectCell(index, 'red');
       }
-      if (this.gameState.plPositions.includes(index)) {
-        this.setCursor(cursors.auto);
-        return;
-      }
+      // if (this.gameState.plPositions.includes(index)) {
+      //   this.setCursor(cursors.auto);
+      //   return;
+      // }
 
       // 10.4 Проверка на недопустимое действие
       if (!canAttack && !canGo) this.setCursor(cursors.notallowed);
