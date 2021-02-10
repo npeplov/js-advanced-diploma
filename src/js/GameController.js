@@ -19,7 +19,7 @@ export default class GameController {
 
   onCellClick(index) {
     // 9. Выбор персонажа
-    // проверка - был ли клик по чару игрока. если да - запомнить его индекс в массиве
+    // проверка - был ли клик по чару игрока. если да - запомнить его индекс в gameState
     const clickedCharInd = this.gameState.chars.findIndex((elem) => {
       const { position, character } = elem;
       return (this.playersChars.includes(character.type) && position === index);
@@ -27,7 +27,9 @@ export default class GameController {
 
     if (clickedCharInd !== -1) {
       this.selectCell(index);
+
       if (this.current) this.deselectCell(this.current.cell);
+
       this.current = {
         type: this.gameState.chars[clickedCharInd].character.type,
         cell: index,
@@ -35,25 +37,18 @@ export default class GameController {
       };
     }
 
-    /*
     if (this.current.type === 'bowman') {
       const { charInd } = this.current;
-
       // 10.2 Проверка на допустимость передвижения
       const canGo = this.checkMovePossibility(index, 2);
       if (canGo) {
-        this.gameState.positions[charInd] = index;
+        this.gameState.chars[charInd].position = index;
         this.current.cell = index;
-        const positionedCharsArr = [];
-        for (let i = 0; i < this.gameState.chars.length; i += 1) {
-          positionedCharsArr.push(new PositionedCharacter(
-            this.gameState.chars[i], this.gameState.positions[i],
-          ));
-        }
         this.current = undefined;
-        this.redrawPositions(positionedCharsArr);
+        this.redrawPositions(this.gameState.chars);
+        this.setCursor(cursors.auto);
       }
-    } */
+    }
   }
 
   onCellEnter(index) {
@@ -83,13 +78,10 @@ export default class GameController {
         this.setCursor(cursors.crosshair);
         this.selectCell(index, 'red');
       }
-      // if (this.gameState.plPositions.includes(index)) {
-      //   this.setCursor(cursors.auto);
-      //   return;
-      // }
 
       // 10.4 Проверка на недопустимое действие
-      // if (!canAttack && !canGo) this.setCursor(cursors.notallowed);
+      if (charInd !== -1) { this.setCursor(cursors.auto); return; }
+      if (!canAttack && !canGo) this.setCursor(cursors.notallowed);
     }
 
     if (this.current.type === 'swordsman') {
@@ -106,12 +98,9 @@ export default class GameController {
         this.setCursor(cursors.crosshair);
         this.selectCell(index, 'red');
       }
-      // if (this.gameState.plPositions.includes(index)) {
-      //   this.setCursor(cursors.auto);
-      //   return;
-      // }
 
       // 10.4 Проверка на недопустимое действие
+      if (charInd !== -1) { this.setCursor(cursors.auto); return; }
       if (!canAttack && !canGo) this.setCursor(cursors.notallowed);
     }
   }

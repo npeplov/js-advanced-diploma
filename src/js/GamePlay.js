@@ -85,6 +85,7 @@ export default class GamePlay {
       cell.innerHTML = '';
       const index = this.cells.indexOf(cell);
       this.deselectCell(index);
+      this.hideCellTooltip(index);
     }
 
     for (const position of positions) {
@@ -179,7 +180,7 @@ export default class GamePlay {
 
   onNewGameClick(event) {
     event.preventDefault();
-    this.positionedCharsArr = [];
+    this.gameState.chars = [];
     this.current = undefined;
     for (let i = 0; i < this.boardSize ** 2; i += 1) {
       this.deselectCell(i);
@@ -192,19 +193,16 @@ export default class GamePlay {
     for (let i = 0; i < player.chars.length; i += 1) {
       const plChar = new player.chars[i].Char(player.chars[i].lvl);
       const posChar = new PositionedCharacter(plChar, pos.next().value);
-      this.positionedCharsArr.push(posChar);
       this.gameState.from(posChar);
     }
 
     for (let i = 0; i < comp.chars.length; i += 1) {
       const cmpChar = new comp.chars[i].Char(comp.chars[i].lvl);
       const posChar = new PositionedCharacter(cmpChar, pos.next().value);
-      this.positionedCharsArr.push(posChar);
       this.gameState.from(posChar);
     }
-    console.log(this.gameState);
 
-    this.redrawPositions(this.positionedCharsArr);
+    this.redrawPositions(this.gameState.chars);
     this.newGameListeners.forEach((o) => o.call(null));
   }
 
@@ -270,11 +268,11 @@ export default class GamePlay {
   }
 
   checkMovePossibility(index, range) {
-    const clickedCharInd = this.gameState.chars.findIndex((elem) => {
+    const clickOnPlayersChar = this.gameState.chars.findIndex((elem) => {
       const { position, character } = elem;
       return (this.playersChars.includes(character.type) && position === index);
     });
-    if (!clickedCharInd) return false;
+    if (clickOnPlayersChar !== -1) return false;
 
     const target = {
       x: index % 8,
