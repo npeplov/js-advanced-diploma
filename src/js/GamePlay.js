@@ -24,6 +24,7 @@ export default class GamePlay {
     this.current = undefined;
     this.gameState = new GameState();
     this.playersChars = ['bowman', 'swordsman', 'magician'];
+    this.pcChars = ['daemon', 'undead', 'vampire'];
   }
 
   bindToDOM(container) {
@@ -295,14 +296,27 @@ export default class GamePlay {
   }
 
   checkAttackPossibility(index, range) {
-    const clickedCharInd = this.gameState.chars.findIndex((elem) => {
+    const clickOnPcChar = this.gameState.chars.findIndex((elem) => {
       const { position, character } = elem;
-      return (this.playersChars.includes(character.type) && position === index);
+      return (position === index && this.pcChars.includes(character.type));
     });
-    if (!clickedCharInd) return false;
+    if (clickOnPcChar === -1) return false;
 
-    if (index === range) {
-      console.log(index, range);
+    const target = {
+      x: index % 8,
+      y: (index - (index % 8)) / 8,
+    };
+    const selected = {
+      x: this.current.cell % 8,
+      y: (this.current.cell - (this.current.cell % 8)) / 8,
+    };
+
+    const difx = Math.abs(target.x - selected.x);
+    const dify = Math.abs(target.y - selected.y);
+
+    if ((difx <= range) && (target.y === selected.y)
+    || (dify <= range) && (target.x === selected.x)
+    || (difx === dify) && (difx <= range)) {
       return true;
     }
     return false;
