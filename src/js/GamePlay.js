@@ -275,6 +275,12 @@ export default class GamePlay {
     });
     if (clickOnPlayersChar !== -1) return false;
 
+    const clickOnPcChar = this.gameState.chars.findIndex((elem) => {
+      const { position, character } = elem;
+      return (position === index && this.pcChars.includes(character.type));
+    });
+    if (clickOnPcChar !== -1) return false;
+
     const target = {
       x: index % 8,
       y: (index - (index % 8)) / 8,

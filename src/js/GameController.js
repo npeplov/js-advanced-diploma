@@ -41,12 +41,36 @@ export default class GameController {
       const { charInd } = this.current;
       // 10.2 Проверка на допустимость передвижения
       const canGo = this.checkMovePossibility(index, 2);
+      const canAttack = this.checkAttackPossibility(index, 5);
+
       if (canGo) {
         this.gameState.chars[charInd].position = index;
         this.current.cell = index;
         this.current = undefined;
         this.redrawPositions(this.gameState.chars);
         this.setCursor(cursors.auto);
+      }
+
+      if (canAttack) {
+        const targetInd = this.gameState.chars.findIndex((elem) => {
+          const { position, character } = elem;
+          return (this.pcChars.includes(character.type) && position === index);
+        });
+
+        const attacker = {
+          attack: this.gameState.chars[this.current.charInd].character.attack,
+        };
+        const target = {
+          defense: this.gameState.chars[targetInd].character.defense,
+        };
+        const damage = Math.max(attacker.attack - target.defense, attacker.attack * 0.1);
+        this.gameState.chars[targetInd].character.health -= damage;
+
+        const respose = this.showDamage(index, damage);
+        respose.then(() => {
+          this.current = undefined;
+          this.redrawPositions(this.gameState.chars);
+        });
       }
     }
   }
