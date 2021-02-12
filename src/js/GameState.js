@@ -1,6 +1,8 @@
 export default class GameState {
   constructor() {
     this.chars = [];
+    this.level = 1;
+    this.score = null;
   }
 
   from(object) {

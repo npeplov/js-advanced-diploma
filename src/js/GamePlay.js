@@ -180,7 +180,7 @@ export default class GamePlay {
   }
 
   onNewGameClick(event) {
-    event.preventDefault();
+    if (event) event.preventDefault();
     this.gameState.chars = [];
     this.current = undefined;
     for (let i = 0; i < this.boardSize ** 2; i += 1) {
@@ -320,9 +320,8 @@ export default class GamePlay {
     const difx = Math.abs(target.x - selected.x);
     const dify = Math.abs(target.y - selected.y);
 
-    if ((difx <= range) && (target.y === selected.y)
-    || (dify <= range) && (target.x === selected.x)
-    || (difx === dify) && (difx <= range)) {
+    if ((difx <= range)
+    || (dify <= range)) {
       return true;
     }
     return false;
