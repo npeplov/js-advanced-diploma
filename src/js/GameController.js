@@ -76,23 +76,17 @@ export default class GameController {
 
         if (this.gameState.level === 1
           && this.gameState.chars.length === 2) {
-          this.drawUi(themes.desert);
-          this.gameState.chars.forEach((elem) => {
-            elem.character.levelup();
-          });
-          this.gameState.level = 2;
+          this.levelup(2);
         }
 
         if (this.gameState.level === 2
           && this.gameState.chars.length === 3) {
-          this.gameState.level = 3;
-          this.drawUi(themes.arctic);
+          this.levelup(3);
         }
 
         if (this.gameState.level === 3
           && this.gameState.chars.length === 5) {
-          this.gameState.level = 4;
-          this.drawUi(themes.mountain);
+          this.levelup(4);
         }
         // 1. чары расставляются на местах как на старте
         // 2. добавить 1 чара игрока 1 лвл и 3 для компа 1-2 лвл:
