@@ -186,7 +186,8 @@ export default class GamePlay {
     if (event) event.preventDefault();
     this.gameState.chars = [];
     this.gameState.level = 1;
-    const pos = positionGenerator(1);
+    const posPl = positionGenerator('player');
+    const posPc = positionGenerator('computer');
 
     this.current = undefined;
     for (let i = 0; i < this.boardSize ** 2; i += 1) {
@@ -199,13 +200,13 @@ export default class GamePlay {
 
     for (let i = 0; i < player.chars.length; i += 1) {
       const plChar = new player.chars[i].Char(player.chars[i].lvl);
-      const posChar = new PositionedCharacter(plChar, pos.next().value);
+      const posChar = new PositionedCharacter(plChar, posPl.next().value);
       this.gameState.from(posChar);
     }
 
     for (let i = 0; i < comp.chars.length; i += 1) {
       const cmpChar = new comp.chars[i].Char(comp.chars[i].lvl);
-      const posChar = new PositionedCharacter(cmpChar, pos.next().value);
+      const posChar = new PositionedCharacter(cmpChar, posPc.next().value);
       this.gameState.from(posChar);
     }
 
@@ -335,35 +336,37 @@ export default class GamePlay {
 
   levelup(lvl) {
     if (lvl === 2) this.drawUi(themes.desert);
+    if (lvl === 3) this.drawUi(themes.arctic);
+    if (lvl === 4) this.drawUi(themes.mountain);
 
-    const pos = positionGenerator(lvl);
+    this.gameState.level = lvl;
+    this.current = undefined;
 
-    // 1. level up и репозиция чаров
+    const posPl = positionGenerator('player');
+    const posPc = positionGenerator('computer');
+
+    this.gameState.score = this.gameState.chars
+      .reduce((acc, elem) => acc + elem.character.health, this.gameState.score);
+
     this.gameState.chars.forEach((elem) => {
       elem.character.levelup();
-      elem.position = pos.next().value;
+      elem.position = posPl.next().value;
     });
-    // 2. gameState сохранить лвл
-    this.gameState.level = lvl;
 
-    // 3. сбросить текущего и деселктнуть все клетки
-    this.current = undefined;
     for (let i = 0; i < this.boardSize ** 2; i += 1) {
       this.deselectCell(i);
     }
-    // 4. Набор классов для генерации на лвл 2:
-    const player = generateTeam([Bowman, Swordsman, Magician], 2, 1);
-    const comp = generateTeam([Daemon], 2, 3);
+    const player = generateTeam([Bowman, Swordsman, Magician], lvl, 1);
+    const comp = generateTeam([Daemon], lvl, lvl + 1);
 
-    // 5. Генератор новых чаров и их позиций 2 лвл:
-    for (let i = 0; i < player.length; i += 1) {
-      const plChar = new player[i].Char(player[i].lvl);
-      const posChar = new PositionedCharacter(plChar, pos.next().value);
-      this.gameState.from(posChar);
-    }
     for (let i = 0; i < comp.length; i += 1) {
       const cmpChar = new comp[i].Char(comp[i].lvl);
-      const posChar = new PositionedCharacter(cmpChar, pos.next().value);
+      const posChar = new PositionedCharacter(cmpChar, posPc.next().value);
+      this.gameState.from(posChar);
+    }
+    for (let i = 0; i < player.length; i += 1) {
+      const plChar = new player[i].Char(player[i].lvl);
+      const posChar = new PositionedCharacter(plChar, posPl.next().value);
       this.gameState.from(posChar);
     }
     this.redrawPositions(this.gameState.chars);

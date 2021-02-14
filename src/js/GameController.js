@@ -15,14 +15,11 @@ export default class GameController {
     this.gamePlay.addCellClickListener(this.onCellClick);
     this.gamePlay.addCellLeaveListener(this.onCellLeave);
     this.gamePlay.onNewGameClick();
-
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
   }
 
   onCellClick(index) {
-    // 9. Выбор персонажа
-    // проверка - был ли клик по чару игрока. если да - запомнить его индекс в gameState
     const clickedCharInd = this.gameState.chars.findIndex((elem) => {
       const { position, character } = elem;
       return (this.playersChars.includes(character.type) && position === index);
@@ -85,22 +82,15 @@ export default class GameController {
         }
 
         if (this.gameState.level === 3
-          && this.gameState.chars.length === 5) {
+          && this.gameState.chars.length === 4) {
           this.levelup(4);
         }
-        // 1. чары расставляются на местах как на старте
-        // 2. добавить 1 чара игрока 1 лвл и 3 для компа 1-2 лвл:
-        // 2.1 generate дописать yield, генератор глобольным
-        // чтобы был контекст gameCtrl - вызвать из GamePlay.js после onClick
-        // 4. прибавить очки баллы игроку
         this.redrawPositions(this.gameState.chars);
       });
     }
-    // }
   }
 
   onCellEnter(index) {
-    // 8. Вывод информации о персонаже 🎖1 ⚔10 🛡40 ❤50
     const mOverCharInd = this.gameState.chars.findIndex((elem) => elem.position === index);
     const mOverPlCharInd = this.gameState.chars.findIndex((elem) => 
       (elem.position === index && this.playersChars.includes(elem.character.type)));
