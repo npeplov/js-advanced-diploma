@@ -5,6 +5,9 @@ import Bowman from './Characters/Bowman.js';
 import Swordsman from './Characters/Swordsman.js';
 import Daemon from './Characters/Daemon.js';
 import Magician from './Characters/Magician.js';
+import Vampire from './Characters/Vampire.js';
+import Undead from './Characters/Undead.js';
+
 import { generateTeam, positionGenerator } from './generators.js';
 import PositionedCharacter from './PositionedCharacter.js';
 import themes from './themes.js';
@@ -18,23 +21,23 @@ export default class GameController {
     this.stateService = stateService;
     this.gameState = new GameState();
     this.current = undefined;
-    this.playersChars = ['bowman', 'swordsman', 'magician'];
-    this.pcChars = ['daemon', 'undead', 'vampire'];
+    this.playersChars = [Bowman, Swordsman, Magician];
+    this.pcChars = [Daemon, Undead, Vampire];
   }
 
   init() {
-    this.gamePlay.drawUi(themes.prairie);
+    this.gamePlay.drawUi(themes[1]);
     this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
     this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
     this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
     this.gamePlay.addNewGameListener(this.onNewGameClick.bind(this));
+    this.gamePlay.addSaveGameListener(this.onSaveGameClick.bind(this));
+    this.gamePlay.addLoadGameListener(this.onLoadGameClick.bind(this));
     this.onNewGameClick();
-    // TODO: load saved stated from stateService
   }
 
   onNewGameClick() {
-    this.gamePlay.drawUi(themes.prairie);
-
+    this.gamePlay.drawUi(themes[1]);
     this.gameState.chars = [];
     this.gameState.level = 1;
     this.current = undefined;
@@ -46,7 +49,7 @@ export default class GameController {
     }
 
     const player = new Team(generateTeam([Bowman, Swordsman], 1, 2));
-    const comp = new Team(generateTeam([Daemon], 1, 2));
+    const comp = new Team(generateTeam([Daemon, Vampire, Undead], 1, 2));
 
     for (let i = 0; i < player.chars.length; i += 1) {
       const plChar = new player.chars[i].Char(player.chars[i].lvl);
@@ -62,12 +65,33 @@ export default class GameController {
     this.gamePlay.redrawPositions(this.gameState.chars);
   }
 
+  onSaveGameClick() {
+    this.stateService.save(this.gameState);
+  }
+
+  onLoadGameClick() {
+    this.gameState.chars = [];
+    const state = this.stateService.load();
+    this.gameState.level = state.level;
+    this.gameState.score = state.score;
+
+    state.chars.forEach((elem) => {
+      const { type, level } = elem.character;
+      const { position } = elem;
+      const Charclass = [...this.playersChars, ...this.pcChars]
+        .find((clas) => clas.name.toLowerCase() === type);
+      this.gameState.from({ character: new Charclass(level), position });
+    });
+    this.gamePlay.drawUi(themes[state.level]);
+    this.gamePlay.redrawPositions(this.gameState.chars);
+  }
+
   onCellClick(index) {
     const clickedCharInd = this.gameState.chars.findIndex((elem) => {
       const { position, character } = elem;
-      return (this.playersChars.includes(character.type) && position === index);
+      return (this.playersChars.find((clas) => clas.name.toLowerCase() === character.type)
+      && position === index);
     });
-
     if (clickedCharInd !== -1) {
       this.gamePlay.selectCell(index);
 
@@ -96,7 +120,8 @@ export default class GameController {
 
     if (canAttack) {
       const targetInd = this.gameState.chars.findIndex((elem) =>
-        this.pcChars.includes(elem.character.type) && elem.position === index);
+        this.pcChars.find((clas) => clas.name.toLowerCase() === elem.character.type
+        && elem.position === index));
 
       const attacker = {
         attack: this.gameState.chars[this.current.charInd].character.attack,
@@ -113,21 +138,7 @@ export default class GameController {
         if (this.gameState.chars[targetInd].character.health <= 0) {
           this.gameState.chars.splice(targetInd, 1);
         }
-
-        if (this.gameState.level === 1
-          && this.gameState.chars.length === 2) {
-          this.levelup(2);
-        }
-
-        if (this.gameState.level === 2
-          && this.gameState.chars.length === 3) {
-          this.levelup(3);
-        }
-
-        if (this.gameState.level === 3
-          && this.gameState.chars.length === 4) {
-          this.levelup(4);
-        }
+        this.checkForLevelUp();
         this.gamePlay.redrawPositions(this.gameState.chars);
       });
     }
@@ -135,8 +146,12 @@ export default class GameController {
 
   onCellEnter(index) {
     const mOverCharInd = this.gameState.chars.findIndex((elem) => elem.position === index);
-    const mOverPlCharInd = this.gameState.chars.findIndex((elem) =>
-      (elem.position === index && this.playersChars.includes(elem.character.type)));
+
+    const mOverPlCharInd = this.gameState.chars.findIndex((elem) => {
+      const { position, character } = elem;
+      return (this.playersChars.find((clas) => clas.name.toLowerCase() === character.type)
+      && position === index);
+    });
 
     if (mOverCharInd !== -1) {
       const element = this.gameState.chars[mOverCharInd].character;
@@ -181,13 +196,15 @@ export default class GameController {
   checkMovePossibility(index, range) {
     const clickOnPlayersChar = this.gameState.chars.findIndex((elem) => {
       const { position, character } = elem;
-      return (this.playersChars.includes(character.type) && position === index);
+      return (this.playersChars.find((clas) => clas.name.toLowerCase() === character.type)
+      && position === index);
     });
     if (clickOnPlayersChar !== -1) return false;
 
     const clickOnPcChar = this.gameState.chars.findIndex((elem) => {
       const { position, character } = elem;
-      return (position === index && this.pcChars.includes(character.type));
+      return (this.pcChars.find((clas) => clas.name.toLowerCase() === character.type)
+      && position === index);
     });
     if (clickOnPcChar !== -1) return false;
 
@@ -214,7 +231,8 @@ export default class GameController {
   checkAttackPossibility(index, range) {
     const clickOnPcChar = this.gameState.chars.findIndex((elem) => {
       const { position, character } = elem;
-      return (position === index && this.pcChars.includes(character.type));
+      return (this.pcChars.find((clas) => clas.name.toLowerCase() === character.type)
+      && position === index);
     });
     if (clickOnPcChar === -1) return false;
 
@@ -237,12 +255,22 @@ export default class GameController {
     return false;
   }
 
-  levelup(lvl) {
-    // вызывать метод лвлАп у чаров в цикле ЛВЛ количество раз
-    if (lvl === 2) this.gamePlay.drawUi(themes.desert);
-    if (lvl === 3) this.gamePlay.drawUi(themes.arctic);
-    if (lvl === 4) this.gamePlay.drawUi(themes.mountain);
+  checkForLevelUp() {
+    if (this.gameState.chars.length === 2) {
+      this.levelup(2);
+    }
+    if (this.gameState.level === 2
+      && this.gameState.chars.length === 3) {
+      this.levelup(3);
+    }
+    if (this.gameState.level === 3
+      && this.gameState.chars.length === 4) {
+      this.levelup(4);
+    }
+  }
 
+  levelup(lvl) {
+    this.gamePlay.drawUi(themes[lvl]);
     this.gameState.level = lvl;
     this.current = undefined;
 
@@ -260,8 +288,8 @@ export default class GameController {
     for (let i = 0; i < this.boardSize ** 2; i += 1) {
       this.gamePlay.deselectCell(i);
     }
-    const player = generateTeam([Bowman, Swordsman, Magician], lvl, 1);
-    const comp = generateTeam([Daemon], lvl, lvl + 1);
+    const player = generateTeam(this.playersChars, lvl, 1);
+    const comp = generateTeam(this.pcChars, lvl, lvl + 1);
 
     for (let i = 0; i < comp.length; i += 1) {
       const cmpChar = new comp[i].Char(comp[i].lvl);
@@ -274,5 +302,6 @@ export default class GameController {
       this.gameState.from(posChar);
     }
     this.gamePlay.redrawPositions(this.gameState.chars);
+    console.log(`Level ${this.gameState.level} reached`);
   }
 }
