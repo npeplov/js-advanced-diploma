@@ -1,16 +1,4 @@
-/* eslint-disable no-param-reassign */
-/* eslint-disable no-mixed-operators */
-import Bowman from './Characters/Bowman.js';
-import Swordsman from './Characters/Swordsman.js';
-import Daemon from './Characters/Daemon.js';
-import Magician from './Characters/Magician.js';
-import Team from './Team.js';
-
 import { calcHealthLevel, calcTileType } from './utils.js';
-import { generateTeam, positionGenerator } from './generators.js';
-import PositionedCharacter from './PositionedCharacter.js';
-import GameState from './GameState.js';
-import themes from './themes.js';
 
 export default class GamePlay {
   constructor() {
@@ -24,10 +12,6 @@ export default class GamePlay {
     this.newGameListeners = [];
     this.saveGameListeners = [];
     this.loadGameListeners = [];
-    this.current = undefined;
-    this.gameState = new GameState();
-    this.playersChars = ['bowman', 'swordsman', 'magician'];
-    this.pcChars = ['daemon', 'undead', 'vampire'];
   }
 
   bindToDOM(container) {
@@ -168,49 +152,22 @@ export default class GamePlay {
   onCellEnter(event) {
     event.preventDefault();
     const index = this.cells.indexOf(event.currentTarget);
-    this.cellEnterListeners.forEach((o) => o.call(this, index));
+    this.cellEnterListeners.forEach((o) => o.call(null, index));
   }
 
   onCellLeave(event) {
     event.preventDefault();
     const index = this.cells.indexOf(event.currentTarget);
-    this.cellLeaveListeners.forEach((o) => o.call(this, index));
+    this.cellLeaveListeners.forEach((o) => o.call(null, index));
   }
 
   onCellClick(event) {
     const index = this.cells.indexOf(event.currentTarget);
-    this.cellClickListeners.forEach((o) => o.call(this, index));
+    this.cellClickListeners.forEach((o) => o.call(null, index));
   }
 
   onNewGameClick(event) {
-    if (event) event.preventDefault();
-    this.gameState.chars = [];
-    this.gameState.level = 1;
-    const posPl = positionGenerator('player');
-    const posPc = positionGenerator('computer');
-
-    this.current = undefined;
-    for (let i = 0; i < this.boardSize ** 2; i += 1) {
-      this.deselectCell(i);
-    }
-    this.drawUi(themes.prairie);
-
-    const player = new Team(generateTeam([Bowman, Swordsman], 1, 2));
-    const comp = new Team(generateTeam([Daemon], 1, 2));
-
-    for (let i = 0; i < player.chars.length; i += 1) {
-      const plChar = new player.chars[i].Char(player.chars[i].lvl);
-      const posChar = new PositionedCharacter(plChar, posPl.next().value);
-      this.gameState.from(posChar);
-    }
-
-    for (let i = 0; i < comp.chars.length; i += 1) {
-      const cmpChar = new comp.chars[i].Char(comp.chars[i].lvl);
-      const posChar = new PositionedCharacter(cmpChar, posPc.next().value);
-      this.gameState.from(posChar);
-    }
-
-    this.redrawPositions(this.gameState.chars);
+    event.preventDefault();
     this.newGameListeners.forEach((o) => o.call(null));
   }
 
@@ -273,102 +230,5 @@ export default class GamePlay {
     if (this.container === null) {
       throw new Error('GamePlay not bind to DOM');
     }
-  }
-
-  checkMovePossibility(index, range) {
-    const clickOnPlayersChar = this.gameState.chars.findIndex((elem) => {
-      const { position, character } = elem;
-      return (this.playersChars.includes(character.type) && position === index);
-    });
-    if (clickOnPlayersChar !== -1) return false;
-
-    const clickOnPcChar = this.gameState.chars.findIndex((elem) => {
-      const { position, character } = elem;
-      return (position === index && this.pcChars.includes(character.type));
-    });
-    if (clickOnPcChar !== -1) return false;
-
-    const target = {
-      x: index % 8,
-      y: (index - (index % 8)) / 8,
-    };
-    const selected = {
-      x: this.current.cell % 8,
-      y: (this.current.cell - (this.current.cell % 8)) / 8,
-    };
-
-    const difx = Math.abs(target.x - selected.x);
-    const dify = Math.abs(target.y - selected.y);
-
-    if ((difx <= range) && (target.y === selected.y)
-    || (dify <= range) && (target.x === selected.x)
-    || (difx === dify) && (difx <= range)) {
-      return true;
-    }
-    return false;
-  }
-
-  checkAttackPossibility(index, range) {
-    const clickOnPcChar = this.gameState.chars.findIndex((elem) => {
-      const { position, character } = elem;
-      return (position === index && this.pcChars.includes(character.type));
-    });
-    if (clickOnPcChar === -1) return false;
-
-    const target = {
-      x: index % 8,
-      y: (index - (index % 8)) / 8,
-    };
-    const selected = {
-      x: this.current.cell % 8,
-      y: (this.current.cell - (this.current.cell % 8)) / 8,
-    };
-
-    const difx = Math.abs(target.x - selected.x);
-    const dify = Math.abs(target.y - selected.y);
-
-    if ((difx <= range)
-    || (dify <= range)) {
-      return true;
-    }
-    return false;
-  }
-
-  levelup(lvl) {
-    if (lvl === 2) this.drawUi(themes.desert);
-    if (lvl === 3) this.drawUi(themes.arctic);
-    if (lvl === 4) this.drawUi(themes.mountain);
-
-    this.gameState.level = lvl;
-    this.current = undefined;
-
-    const posPl = positionGenerator('player');
-    const posPc = positionGenerator('computer');
-
-    this.gameState.score = this.gameState.chars
-      .reduce((acc, elem) => acc + elem.character.health, this.gameState.score);
-
-    this.gameState.chars.forEach((elem) => {
-      elem.character.levelup();
-      elem.position = posPl.next().value;
-    });
-
-    for (let i = 0; i < this.boardSize ** 2; i += 1) {
-      this.deselectCell(i);
-    }
-    const player = generateTeam([Bowman, Swordsman, Magician], lvl, 1);
-    const comp = generateTeam([Daemon], lvl, lvl + 1);
-
-    for (let i = 0; i < comp.length; i += 1) {
-      const cmpChar = new comp[i].Char(comp[i].lvl);
-      const posChar = new PositionedCharacter(cmpChar, posPc.next().value);
-      this.gameState.from(posChar);
-    }
-    for (let i = 0; i < player.length; i += 1) {
-      const plChar = new player[i].Char(player[i].lvl);
-      const posChar = new PositionedCharacter(plChar, posPl.next().value);
-      this.gameState.from(posChar);
-    }
-    this.redrawPositions(this.gameState.chars);
   }
 }
