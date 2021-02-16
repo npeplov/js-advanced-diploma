@@ -7,7 +7,6 @@ import Daemon from './Characters/Daemon.js';
 import Magician from './Characters/Magician.js';
 import Vampire from './Characters/Vampire.js';
 import Undead from './Characters/Undead.js';
-
 import { generateTeam, positionGenerator } from './generators.js';
 import PositionedCharacter from './PositionedCharacter.js';
 import themes from './themes.js';
@@ -86,23 +85,27 @@ export default class GameController {
     this.gamePlay.redrawPositions(this.gameState.chars);
   }
 
-  onCellClick(index) {
-    const clickedCharInd = this.gameState.chars.findIndex((elem) => {
+  getCharIndex(cell, arr) {
+    return this.gameState.chars.findIndex((elem) => {
       const { position, character } = elem;
-      return (this.playersChars.find((clas) => clas.name.toLowerCase() === character.type)
-      && position === index);
+      return (arr.find((clas) => clas.name.toLowerCase() === character.type)
+      && position === cell);
     });
+  }
+
+  onCellClick(index) {
+    const clickedCharInd = this.getCharIndex(index, this.playersChars);
     if (clickedCharInd !== -1) {
       this.gamePlay.selectCell(index);
-
       if (this.current) this.gamePlay.deselectCell(this.current.cell);
-
       this.current = {
         type: this.gameState.chars[clickedCharInd].character.type,
         cell: index,
         charInd: clickedCharInd,
       };
     }
+
+    if (!this.current) return;
 
     const { charInd } = this.current;
     const { character } = this.gameState.chars[charInd];
@@ -119,17 +122,14 @@ export default class GameController {
     }
 
     if (canAttack) {
-      const targetInd = this.gameState.chars.findIndex((elem) =>
-        this.pcChars.find((clas) => clas.name.toLowerCase() === elem.character.type
-        && elem.position === index));
-
+      const targetInd = this.getCharIndex(index, this.pcChars);
       const attacker = {
-        attack: this.gameState.chars[this.current.charInd].character.attack,
+        attack: this.gameState.chars[charInd].character.attack,
       };
       const target = {
         defense: this.gameState.chars[targetInd].character.defense,
       };
-      const damage = Math.max(attacker.attack - target.defense, attacker.attack * 2);
+      const damage = Math.max(attacker.attack - target.defense, attacker.attack * 0.1);
       this.gameState.chars[targetInd].character.health -= damage;
 
       const respose = this.gamePlay.showDamage(index, damage);
@@ -146,12 +146,7 @@ export default class GameController {
 
   onCellEnter(index) {
     const mOverCharInd = this.gameState.chars.findIndex((elem) => elem.position === index);
-
-    const mOverPlCharInd = this.gameState.chars.findIndex((elem) => {
-      const { position, character } = elem;
-      return (this.playersChars.find((clas) => clas.name.toLowerCase() === character.type)
-      && position === index);
-    });
+    const mOverPlCharInd = this.getCharIndex(index, this.playersChars);
 
     if (mOverCharInd !== -1) {
       const element = this.gameState.chars[mOverCharInd].character;
@@ -171,13 +166,11 @@ export default class GameController {
       this.gamePlay.setCursor(cursors.pointer);
       this.gamePlay.selectCell(index, 'green');
     }
-
     // 10.3 Проверка на допустимость атаки
     if (canAttack) {
       this.gamePlay.setCursor(cursors.crosshair);
       this.gamePlay.selectCell(index, 'red');
     }
-
     // 10.4 Проверка на недопустимое действие
     if (mOverPlCharInd !== -1) { this.gamePlay.setCursor(cursors.auto); return; }
     if (!canAttack && !canGo) this.gamePlay.setCursor(cursors.notallowed);
@@ -193,29 +186,25 @@ export default class GameController {
     }
   }
 
-  checkMovePossibility(index, range) {
-    const clickOnPlayersChar = this.gameState.chars.findIndex((elem) => {
-      const { position, character } = elem;
-      return (this.playersChars.find((clas) => clas.name.toLowerCase() === character.type)
-      && position === index);
-    });
-    if (clickOnPlayersChar !== -1) return false;
-
-    const clickOnPcChar = this.gameState.chars.findIndex((elem) => {
-      const { position, character } = elem;
-      return (this.pcChars.find((clas) => clas.name.toLowerCase() === character.type)
-      && position === index);
-    });
-    if (clickOnPcChar !== -1) return false;
-
-    const target = {
+  convertCoordinates(index) {
+    if (!index) {
+      return {
+        x: this.current.cell % 8,
+        y: (this.current.cell - (this.current.cell % 8)) / 8,
+      };
+    }
+    return {
       x: index % 8,
       y: (index - (index % 8)) / 8,
     };
-    const selected = {
-      x: this.current.cell % 8,
-      y: (this.current.cell - (this.current.cell % 8)) / 8,
-    };
+  }
+
+  checkMovePossibility(index, range) {
+    const clickOnChar = this.getCharIndex(index, [...this.playersChars, ...this.pcChars]);
+    if (clickOnChar !== -1) return false;
+
+    const target = this.convertCoordinates(index);
+    const selected = this.convertCoordinates();
 
     const difx = Math.abs(target.x - selected.x);
     const dify = Math.abs(target.y - selected.y);
@@ -229,27 +218,16 @@ export default class GameController {
   }
 
   checkAttackPossibility(index, range) {
-    const clickOnPcChar = this.gameState.chars.findIndex((elem) => {
-      const { position, character } = elem;
-      return (this.pcChars.find((clas) => clas.name.toLowerCase() === character.type)
-      && position === index);
-    });
+    const clickOnPcChar = this.getCharIndex(index, this.pcChars);
     if (clickOnPcChar === -1) return false;
 
-    const target = {
-      x: index % 8,
-      y: (index - (index % 8)) / 8,
-    };
-    const selected = {
-      x: this.current.cell % 8,
-      y: (this.current.cell - (this.current.cell % 8)) / 8,
-    };
+    const target = this.convertCoordinates(index);
+    const selected = this.convertCoordinates();
 
     const difx = Math.abs(target.x - selected.x);
     const dify = Math.abs(target.y - selected.y);
 
-    if ((difx <= range)
-    || (dify <= range)) {
+    if ((difx <= range) && (dify <= range)) {
       return true;
     }
     return false;

@@ -9,8 +9,9 @@ export default class Character {
   }
 
   levelup() {
-    this.attack = Math.round(Math.max(this.attack, (this.attack * (this.health / 30))));
-    this.defense = Math.round(Math.max(this.defense, (this.defense * (this.health / 30))));
+    const koef = 1.8 - (1 - this.health / 100);
+    this.attack = Math.round(Math.max(this.attack, (this.attack * koef)));
+    this.defense = Math.round(Math.max(this.defense, (this.defense * koef)));
     this.health = Math.min(this.health + 80, 100);
     this.level += 1;
   }
