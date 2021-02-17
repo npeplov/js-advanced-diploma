@@ -69,8 +69,10 @@ export default class GameController {
   }
 
   onLoadGameClick() {
-    this.gameState.chars = [];
     const state = this.stateService.load();
+    if (!state.chars) return;
+
+    this.gameState.chars = [];
     this.gameState.level = state.level;
     this.gameState.score = state.score;
 
@@ -110,8 +112,8 @@ export default class GameController {
     const { charInd } = this.current;
     const { character } = this.gameState.chars[charInd];
     // *** 10.2 Проверка на допустимость передвижения и атаки
-    const canGo = this.checkMovePossibility(index, character.rmove);
-    const canAttack = this.checkAttackPossibility(index, character.rattack);
+    const canGo = this.checkTurnPossibility(index, character.rmove, 'move');
+    const canAttack = this.checkTurnPossibility(index, character.rattack, 'attack');
 
     if (canGo) {
       this.gameState.chars[charInd].position = index;
@@ -123,12 +125,8 @@ export default class GameController {
 
     if (canAttack) {
       const targetInd = this.getCharIndex(index, this.pcChars);
-      const attacker = {
-        attack: this.gameState.chars[charInd].character.attack,
-      };
-      const target = {
-        defense: this.gameState.chars[targetInd].character.defense,
-      };
+      const attacker = { attack: this.gameState.chars[charInd].character.attack };
+      const target = { defense: this.gameState.chars[targetInd].character.defense };
       const damage = Math.max(attacker.attack - target.defense, attacker.attack * 0.1);
       this.gameState.chars[targetInd].character.health -= damage;
 
@@ -160,8 +158,8 @@ export default class GameController {
     const { charInd } = this.current;
     const { character } = this.gameState.chars[charInd];
     // *** 10.2 Проверка на допустимость передвижения и атаки
-    const canGo = this.checkMovePossibility(index, character.rmove);
-    const canAttack = this.checkAttackPossibility(index, character.rattack);
+    const canGo = this.checkTurnPossibility(index, character.rmove, 'move');
+    const canAttack = this.checkTurnPossibility(index, character.rattack, 'attack');
     if (canGo) {
       this.gamePlay.setCursor(cursors.pointer);
       this.gamePlay.selectCell(index, 'green');
@@ -199,36 +197,28 @@ export default class GameController {
     };
   }
 
-  checkMovePossibility(index, range) {
-    const clickOnChar = this.getCharIndex(index, [...this.playersChars, ...this.pcChars]);
-    if (clickOnChar !== -1) return false;
-
+  checkTurnPossibility(index, range, action) {
     const target = this.convertCoordinates(index);
     const selected = this.convertCoordinates();
-
     const difx = Math.abs(target.x - selected.x);
     const dify = Math.abs(target.y - selected.y);
 
-    if ((difx <= range) && (target.y === selected.y)
-    || (dify <= range) && (target.x === selected.x)
-    || (difx === dify) && (difx <= range)) {
-      return true;
-    }
-    return false;
-  }
+    if (action === 'attack') {
+      const clickOnPcChar = this.getCharIndex(index, this.pcChars);
+      if (clickOnPcChar === -1) return false;
 
-  checkAttackPossibility(index, range) {
-    const clickOnPcChar = this.getCharIndex(index, this.pcChars);
-    if (clickOnPcChar === -1) return false;
+      if ((difx <= range) && (dify <= range)) {
+        return true;
+      }
+    } else if (action === 'move') {
+      const clickOnChar = this.getCharIndex(index, [...this.playersChars, ...this.pcChars]);
+      if (clickOnChar !== -1) return false;
 
-    const target = this.convertCoordinates(index);
-    const selected = this.convertCoordinates();
-
-    const difx = Math.abs(target.x - selected.x);
-    const dify = Math.abs(target.y - selected.y);
-
-    if ((difx <= range) && (dify <= range)) {
-      return true;
+      if ((difx <= range) && (target.y === selected.y)
+      || (dify <= range) && (target.x === selected.x)
+      || (difx === dify) && (difx <= range)) {
+        return true;
+      }
     }
     return false;
   }
