@@ -182,7 +182,9 @@ export default class GamePlay {
   }
 
   static showError(message) {
+    if (typeof exports !== 'undefined') return (message);
     alert(message);
+    return true;
   }
 
   static showMessage(message) {

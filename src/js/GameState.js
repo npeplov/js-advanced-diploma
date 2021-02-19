@@ -3,6 +3,7 @@ export default class GameState {
     this.chars = [];
     this.level = 1;
     this.score = null;
+    this.record = null;
   }
 
   from(object) {

@@ -1,6 +1,5 @@
 /* eslint-disable no-param-reassign */
 /* eslint-disable no-mixed-operators */
-/* eslint-disable implicit-arrow-linebreak */
 import Bowman from './Characters/Bowman.js';
 import Swordsman from './Characters/Swordsman.js';
 import Daemon from './Characters/Daemon.js';
@@ -13,13 +12,15 @@ import themes from './themes.js';
 import Team from './Team.js';
 import GameState from './GameState.js';
 import cursors from './cursors.js';
+import { getTooltipTemplate } from './utils.js';
+import GamePlay from './GamePlay.js';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
     this.gamePlay = gamePlay;
     this.stateService = stateService;
     this.gameState = new GameState();
-    this.current = undefined;
+    this.current = null;
     this.playersChars = [Bowman, Swordsman, Magician];
     this.pcChars = [Daemon, Undead, Vampire];
   }
@@ -32,14 +33,14 @@ export default class GameController {
     this.gamePlay.addNewGameListener(this.onNewGameClick.bind(this));
     this.gamePlay.addSaveGameListener(this.onSaveGameClick.bind(this));
     this.gamePlay.addLoadGameListener(this.onLoadGameClick.bind(this));
-    this.onNewGameClick();
+    const state = this.stateService.load();
+    if (state) this.gameState.record = state.record;
   }
 
   onNewGameClick() {
-    this.gamePlay.drawUi(themes[1]);
-    this.gameState.chars = [];
-    this.gameState.level = 1;
-    this.current = undefined;
+    this.resetToDefault();
+    this.init();
+
     const posPl = positionGenerator('player');
     const posPc = positionGenerator('computer');
 
@@ -62,6 +63,8 @@ export default class GameController {
       this.gameState.from(posChar);
     }
     this.gamePlay.redrawPositions(this.gameState.chars);
+    const state = this.stateService.load();
+    if (!state) this.stateService.save(this.gameState);
   }
 
   onSaveGameClick() {
@@ -95,7 +98,7 @@ export default class GameController {
     });
   }
 
-  onCellClick(index) {
+  async onCellClick(index) {
     const clickedCharInd = this.getCharIndex(index, this.playersChars);
     if (clickedCharInd !== -1) {
       this.gamePlay.selectCell(index);
@@ -118,27 +121,27 @@ export default class GameController {
     if (canGo) {
       this.gameState.chars[charInd].position = index;
       this.current.cell = index;
-      this.current = undefined;
+      this.current = null;
       this.gamePlay.redrawPositions(this.gameState.chars);
       this.gamePlay.setCursor(cursors.auto);
     }
 
     if (canAttack) {
-      const targetInd = this.getCharIndex(index, this.pcChars);
+      let targetInd = this.getCharIndex(index, this.pcChars);
       const attacker = { attack: this.gameState.chars[charInd].character.attack };
       const target = { defense: this.gameState.chars[targetInd].character.defense };
       const damage = Math.max(attacker.attack - target.defense, attacker.attack * 0.1);
       this.gameState.chars[targetInd].character.health -= damage;
 
-      const respose = this.gamePlay.showDamage(index, damage);
-      respose.then(() => {
-        this.current = undefined;
-        if (this.gameState.chars[targetInd].character.health <= 0) {
-          this.gameState.chars.splice(targetInd, 1);
-        }
-        this.checkForLevelUp();
-        this.gamePlay.redrawPositions(this.gameState.chars);
-      });
+      await this.gamePlay.showDamage(index, damage);
+      if (this.gameState.chars[targetInd].character.health <= 0) {
+        this.gameState.chars.splice(targetInd, 1);
+        targetInd = null;
+      }
+      this.gamePlay.redrawPositions(this.gameState.chars);
+      this.ai(targetInd, index, this.current.cell, charInd);
+      this.current = null;
+      this.checkForLevelUp();
     }
   }
 
@@ -147,10 +150,8 @@ export default class GameController {
     const mOverPlCharInd = this.getCharIndex(index, this.playersChars);
 
     if (mOverCharInd !== -1) {
-      const element = this.gameState.chars[mOverCharInd].character;
-      this.gamePlay.showCellTooltip(`
-      🎖 ${element.level} ⚔${element.attack} 🛡 ${element.defense} ❤ ${element.health}
-      `, index);
+      const char = this.gameState.chars[mOverCharInd].character;
+      this.gamePlay.showCellTooltip(getTooltipTemplate(char), index);
     }
 
     if (!this.current) return;
@@ -170,7 +171,8 @@ export default class GameController {
       this.gamePlay.selectCell(index, 'red');
     }
     // 10.4 Проверка на недопустимое действие
-    if (mOverPlCharInd !== -1) { this.gamePlay.setCursor(cursors.auto); return; }
+    if (mOverPlCharInd !== -1) { this.gamePlay.setCursor(cursors.pointer); return; }
+
     if (!canAttack && !canGo) this.gamePlay.setCursor(cursors.notallowed);
   }
 
@@ -197,7 +199,7 @@ export default class GameController {
     };
   }
 
-  checkTurnPossibility(index, range, action) {
+  checkTurnPossibility(index, range, action, ai = 0) {
     const target = this.convertCoordinates(index);
     const selected = this.convertCoordinates();
     const difx = Math.abs(target.x - selected.x);
@@ -205,7 +207,7 @@ export default class GameController {
 
     if (action === 'attack') {
       const clickOnPcChar = this.getCharIndex(index, this.pcChars);
-      if (clickOnPcChar === -1) return false;
+      if ((clickOnPcChar + ai) === -1) return false;
 
       if ((difx <= range) && (dify <= range)) {
         return true;
@@ -223,30 +225,64 @@ export default class GameController {
     return false;
   }
 
-  checkForLevelUp() {
-    if (this.gameState.chars.length === 2) {
-      this.levelup(2);
-    }
-    if (this.gameState.level === 2
-      && this.gameState.chars.length === 3) {
-      this.levelup(3);
-    }
-    if (this.gameState.level === 3
-      && this.gameState.chars.length === 4) {
-      this.levelup(4);
+  ai(charInd, cell, attackedCell, targetInd) {
+    if (!charInd) { return; }
+    const { character } = this.gameState.chars[charInd];
+    const canAttack = this.checkTurnPossibility(attackedCell, character.rattack, 'attack', 1);
+    if (canAttack) {
+      const attacker = { attack: this.gameState.chars[charInd].character.attack };
+      const target = { defense: this.gameState.chars[targetInd].character.defense };
+      const damage = Math.max(attacker.attack - target.defense, attacker.attack * 0.1);
+      this.gameState.chars[targetInd].character.health -= damage;
+
+      const respose = this.gamePlay.showDamage(attackedCell, damage);
+      respose.then(() => {
+        if (this.gameState.chars[targetInd].character.health <= 0) {
+          this.gameState.chars.splice(targetInd, 1);
+        }
+        this.gamePlay.redrawPositions(this.gameState.chars);
+        this.checkForLevelUp();
+      });
     }
   }
 
+  checkForLevelUp() {
+    const pcCharsOnBoard = this.gameState.chars.some((elem) => {
+      const { character } = elem;
+      return (this.pcChars.find((clas) => clas.name.toLowerCase() === character.type));
+    });
+
+    const playersCharsOnBoard = this.gameState.chars.some((elem) => {
+      const { character } = elem;
+      return (this.playersChars.find((clas) => clas.name.toLowerCase() === character.type));
+    });
+
+    if (!playersCharsOnBoard) {
+      GamePlay.showMessage('You loose');
+    }
+
+    if (!pcCharsOnBoard) {
+      this.gameState.level += 1;
+      this.levelup(this.gameState.level);
+    }
+    this.checkForRecord();
+  }
+
   levelup(lvl) {
+    this.gameState.score = this.gameState.chars
+      .reduce((acc, elem) => acc + elem.character.health, this.gameState.score);
+    if (lvl > 4) { GamePlay.showMessage('You win!'); return; }
+
+    // если уровень 2: у игрока должно стать 3 чара
+    // нужно сосчитать сколько чаров осталось
+    // можно все 6 запустить лвлап
+
     this.gamePlay.drawUi(themes[lvl]);
-    this.gameState.level = lvl;
-    this.current = undefined;
+    this.checkForRecord();
+    this.current = null;
 
     const posPl = positionGenerator('player');
     const posPc = positionGenerator('computer');
-
-    this.gameState.score = this.gameState.chars
-      .reduce((acc, elem) => acc + elem.character.health, this.gameState.score);
 
     this.gameState.chars.forEach((elem) => {
       elem.character.levelup();
@@ -256,7 +292,8 @@ export default class GameController {
     for (let i = 0; i < this.boardSize ** 2; i += 1) {
       this.gamePlay.deselectCell(i);
     }
-    const player = generateTeam(this.playersChars, lvl, 1);
+    const numberOfCharsToAdd = lvl - this.gameState.chars.length + 1;
+    const player = generateTeam(this.playersChars, lvl, numberOfCharsToAdd);
     const comp = generateTeam(this.pcChars, lvl, lvl + 1);
 
     for (let i = 0; i < comp.length; i += 1) {
@@ -270,6 +307,27 @@ export default class GameController {
       this.gameState.from(posChar);
     }
     this.gamePlay.redrawPositions(this.gameState.chars);
-    console.log(`Level ${this.gameState.level} reached`);
+  }
+
+  checkForRecord() {
+    const state = this.stateService.load();
+
+    if (this.gameState.score > this.gameState.record) {
+      this.gameState.record = this.gameState.score;
+      state.record = this.gameState.record;
+      this.stateService.save(state);
+    }
+  }
+
+  resetToDefault() {
+    this.gamePlay.cellClickListeners = [];
+    this.gamePlay.cellEnterListeners = [];
+    this.gamePlay.cellLeaveListeners = [];
+    this.gamePlay.newGameListeners = [];
+    this.gamePlay.saveGameListeners = [];
+    this.gamePlay.loadGameListeners = [];
+    this.gameState.chars = [];
+    this.gameState.level = 1;
+    this.current = null;
   }
 }
