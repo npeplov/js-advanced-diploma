@@ -24,3 +24,10 @@ export function calcHealthLevel(health) {
 export function getTooltipTemplate(char) {
   return `🎖 ${char.level} ⚔ ${char.attack} 🛡 ${char.defense} ❤ ${char.health}`;
 }
+
+export function convertCoordinates(index) {
+  return {
+    x: index % 8,
+    y: (index - (index % 8)) / 8,
+  };
+}

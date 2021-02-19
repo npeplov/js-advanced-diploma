@@ -6,14 +6,14 @@ import Daemon from './Characters/Daemon.js';
 import Magician from './Characters/Magician.js';
 import Vampire from './Characters/Vampire.js';
 import Undead from './Characters/Undead.js';
-import { generateTeam, positionGenerator } from './generators.js';
 import PositionedCharacter from './PositionedCharacter.js';
 import themes from './themes.js';
 import Team from './Team.js';
 import GameState from './GameState.js';
 import cursors from './cursors.js';
-import { getTooltipTemplate } from './utils.js';
 import GamePlay from './GamePlay.js';
+import { generateTeam, positionGenerator } from './generators.js';
+import { getTooltipTemplate, convertCoordinates } from './utils.js';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
@@ -115,8 +115,8 @@ export default class GameController {
     const { charInd } = this.current;
     const { character } = this.gameState.chars[charInd];
     // *** 10.2 Проверка на допустимость передвижения и атаки
-    const canGo = this.checkTurnPossibility(index, character.rmove, 'move');
-    const canAttack = this.checkTurnPossibility(index, character.rattack, 'attack');
+    const canGo = this.checkTurnPossibility(this.current.cell, index, character.rmove, 'move');
+    const canAttack = this.checkTurnPossibility(this.current.cell, index, character.rattack, 'attack');
 
     if (canGo) {
       this.gameState.chars[charInd].position = index;
@@ -130,7 +130,7 @@ export default class GameController {
       let targetInd = this.getCharIndex(index, this.pcChars);
       const attacker = { attack: this.gameState.chars[charInd].character.attack };
       const target = { defense: this.gameState.chars[targetInd].character.defense };
-      const damage = Math.max(attacker.attack - target.defense, attacker.attack * 0.1);
+      const damage = Math.max(attacker.attack - target.defense, attacker.attack * 0.1).toFixed();
       this.gameState.chars[targetInd].character.health -= damage;
 
       await this.gamePlay.showDamage(index, damage);
@@ -139,7 +139,7 @@ export default class GameController {
         targetInd = null;
       }
       this.gamePlay.redrawPositions(this.gameState.chars);
-      this.ai(targetInd, index, this.current.cell, charInd);
+      this.ai(targetInd, this.current.cell, charInd);
       this.current = null;
       this.checkForLevelUp();
     }
@@ -159,8 +159,8 @@ export default class GameController {
     const { charInd } = this.current;
     const { character } = this.gameState.chars[charInd];
     // *** 10.2 Проверка на допустимость передвижения и атаки
-    const canGo = this.checkTurnPossibility(index, character.rmove, 'move');
-    const canAttack = this.checkTurnPossibility(index, character.rattack, 'attack');
+    const canGo = this.checkTurnPossibility(this.current.cell, index, character.rmove, 'move');
+    const canAttack = this.checkTurnPossibility(this.current.cell, index, character.rattack, 'attack');
     if (canGo) {
       this.gamePlay.setCursor(cursors.pointer);
       this.gamePlay.selectCell(index, 'green');
@@ -186,38 +186,24 @@ export default class GameController {
     }
   }
 
-  convertCoordinates(index) {
-    if (!index) {
-      return {
-        x: this.current.cell % 8,
-        y: (this.current.cell - (this.current.cell % 8)) / 8,
-      };
-    }
-    return {
-      x: index % 8,
-      y: (index - (index % 8)) / 8,
-    };
-  }
-
-  checkTurnPossibility(index, range, action, ai = 0) {
-    const target = this.convertCoordinates(index);
-    const selected = this.convertCoordinates();
-    const difx = Math.abs(target.x - selected.x);
-    const dify = Math.abs(target.y - selected.y);
+  checkTurnPossibility(startCell, finishCell, range, action, ai = 0) {
+    const start = convertCoordinates(startCell);
+    const finish = convertCoordinates(finishCell);
+    const difx = Math.abs(finish.x - start.x);
+    const dify = Math.abs(finish.y - start.y);
 
     if (action === 'attack') {
-      const clickOnPcChar = this.getCharIndex(index, this.pcChars);
+      const clickOnPcChar = this.getCharIndex(finishCell, this.pcChars);
       if ((clickOnPcChar + ai) === -1) return false;
-
       if ((difx <= range) && (dify <= range)) {
         return true;
       }
     } else if (action === 'move') {
-      const clickOnChar = this.getCharIndex(index, [...this.playersChars, ...this.pcChars]);
+      const clickOnChar = this.getCharIndex(finishCell, [...this.playersChars, ...this.pcChars]);
       if (clickOnChar !== -1) return false;
 
-      if ((difx <= range) && (target.y === selected.y)
-      || (dify <= range) && (target.x === selected.x)
+      if ((difx <= range) && (finish.y === start.y)
+      || (dify <= range) && (finish.x === start.x)
       || (difx === dify) && (difx <= range)) {
         return true;
       }
@@ -225,24 +211,23 @@ export default class GameController {
     return false;
   }
 
-  ai(charInd, cell, attackedCell, targetInd) {
+  async ai(charInd, targetCell, targetInd) {
     if (!charInd) { return; }
     const { character } = this.gameState.chars[charInd];
-    const canAttack = this.checkTurnPossibility(attackedCell, character.rattack, 'attack', 1);
+    const startCell = this.gameState.chars[charInd].position;
+    const canAttack = this.checkTurnPossibility(startCell, targetCell, character.rattack, 'attack', 1);
     if (canAttack) {
       const attacker = { attack: this.gameState.chars[charInd].character.attack };
       const target = { defense: this.gameState.chars[targetInd].character.defense };
-      const damage = Math.max(attacker.attack - target.defense, attacker.attack * 0.1);
+      const damage = Math.max(attacker.attack - target.defense, attacker.attack * 0.1).toFixed(0);
       this.gameState.chars[targetInd].character.health -= damage;
 
-      const respose = this.gamePlay.showDamage(attackedCell, damage);
-      respose.then(() => {
-        if (this.gameState.chars[targetInd].character.health <= 0) {
-          this.gameState.chars.splice(targetInd, 1);
-        }
-        this.gamePlay.redrawPositions(this.gameState.chars);
-        this.checkForLevelUp();
-      });
+      await this.gamePlay.showDamage(targetCell, damage);
+      if (this.gameState.chars[targetInd].character.health <= 0) {
+        this.gameState.chars.splice(targetInd, 1);
+      }
+      this.gamePlay.redrawPositions(this.gameState.chars);
+      this.checkForLevelUp();
     }
   }
 
@@ -272,10 +257,6 @@ export default class GameController {
     this.gameState.score = this.gameState.chars
       .reduce((acc, elem) => acc + elem.character.health, this.gameState.score);
     if (lvl > 4) { GamePlay.showMessage('You win!'); return; }
-
-    // если уровень 2: у игрока должно стать 3 чара
-    // нужно сосчитать сколько чаров осталось
-    // можно все 6 запустить лвлап
 
     this.gamePlay.drawUi(themes[lvl]);
     this.checkForRecord();
