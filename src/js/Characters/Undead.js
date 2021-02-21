@@ -8,4 +8,8 @@ export default class Undead extends Character {
     this.rmove = 4;
     this.rattack = 1;
   }
+
+  static name() {
+    return 'undead';
+  }
 }

@@ -8,4 +8,8 @@ export default class Vampire extends Character {
     this.rmove = 2;
     this.rattack = 2;
   }
+
+  static name() {
+    return 'vampire';
+  }
 }
