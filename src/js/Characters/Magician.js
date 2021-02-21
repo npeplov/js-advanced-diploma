@@ -8,4 +8,8 @@ export default class Magician extends Character {
     this.rmove = 1;
     this.rattack = 4;
   }
+
+  static name() {
+    return 'magician';
+  }
 }

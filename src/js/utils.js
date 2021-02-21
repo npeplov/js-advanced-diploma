@@ -25,9 +25,12 @@ export function getTooltipTemplate(char) {
   return `🎖 ${char.level} ⚔ ${char.attack} 🛡 ${char.defense} ❤ ${char.health}`;
 }
 
-export function convertCoordinates(index) {
+export function convertCoordinates(cell) {
+  if (cell.x !== undefined) {
+    return cell.y * 8 + cell.x;
+  }
   return {
-    x: index % 8,
-    y: (index - (index % 8)) / 8,
+    x: cell % 8,
+    y: (cell - (cell % 8)) / 8,
   };
 }

@@ -83,7 +83,7 @@ export default class GameController {
       const { type, level } = elem.character;
       const { position } = elem;
       const Charclass = [...this.playersChars, ...this.pcChars]
-        .find((clas) => clas.name.toLowerCase() === type);
+        .find((clas) => clas.name() === type);
       this.gameState.from({ character: new Charclass(level), position });
     });
     this.gamePlay.drawUi(themes[state.level]);
@@ -93,7 +93,7 @@ export default class GameController {
   getCharIndex(cell, arr) {
     return this.gameState.chars.findIndex((elem) => {
       const { position, character } = elem;
-      return (arr.find((clas) => clas.name.toLowerCase() === character.type)
+      return (arr.find((clas) => clas.name() === character.type)
       && position === cell);
     });
   }
@@ -139,7 +139,9 @@ export default class GameController {
         targetInd = null;
       }
       this.gamePlay.redrawPositions(this.gameState.chars);
-      this.ai(targetInd, this.current.cell, charInd);
+
+      this.aiTurn(targetInd, this.current.cell, charInd);
+
       this.current = null;
       this.checkForLevelUp();
     }
@@ -172,7 +174,6 @@ export default class GameController {
     }
     // 10.4 Проверка на недопустимое действие
     if (mOverPlCharInd !== -1) { this.gamePlay.setCursor(cursors.pointer); return; }
-
     if (!canAttack && !canGo) this.gamePlay.setCursor(cursors.notallowed);
   }
 
@@ -186,7 +187,8 @@ export default class GameController {
     }
   }
 
-  checkTurnPossibility(startCell, finishCell, range, action, ai = 0) {
+  checkTurnPossibility(startCell, finishCell, range, action) {
+    const ai = this.getCharIndex(startCell, this.pcChars) + 1;
     const start = convertCoordinates(startCell);
     const finish = convertCoordinates(finishCell);
     const difx = Math.abs(finish.x - start.x);
@@ -207,15 +209,22 @@ export default class GameController {
       || (difx === dify) && (difx <= range)) {
         return true;
       }
+    } else if (action === 'approach') {
+      if (dify > difx) {
+        if (finish.y > start.y) start.y += 1;
+        else start.y -= 1;
+        return convertCoordinates({ x: start.x, y: start.y });
+      }
+      return convertCoordinates({ x: start.x - 1, y: start.y });
     }
     return false;
   }
 
-  async ai(charInd, targetCell, targetInd) {
+  async aiTurn(charInd, targetCell, targetInd) {
     if (!charInd) { return; }
     const { character } = this.gameState.chars[charInd];
     const startCell = this.gameState.chars[charInd].position;
-    const canAttack = this.checkTurnPossibility(startCell, targetCell, character.rattack, 'attack', 1);
+    const canAttack = this.checkTurnPossibility(startCell, targetCell, character.rattack, 'attack');
     if (canAttack) {
       const attacker = { attack: this.gameState.chars[charInd].character.attack };
       const target = { defense: this.gameState.chars[targetInd].character.defense };
@@ -229,17 +238,24 @@ export default class GameController {
       this.gamePlay.redrawPositions(this.gameState.chars);
       this.checkForLevelUp();
     }
+    if (canAttack) return;
+    const newPostion = this.checkTurnPossibility(startCell, targetCell, character.rattack, 'approach');
+    const canMove = this.checkTurnPossibility(startCell, newPostion, character.rattack, 'move');
+    if (canMove) {
+      this.gameState.chars[charInd].position = newPostion;
+      this.gamePlay.redrawPositions(this.gameState.chars);
+    }
   }
 
   checkForLevelUp() {
     const pcCharsOnBoard = this.gameState.chars.some((elem) => {
       const { character } = elem;
-      return (this.pcChars.find((clas) => clas.name.toLowerCase() === character.type));
+      return (this.pcChars.find((clas) => clas.name() === character.type));
     });
 
     const playersCharsOnBoard = this.gameState.chars.some((elem) => {
       const { character } = elem;
-      return (this.playersChars.find((clas) => clas.name.toLowerCase() === character.type));
+      return (this.playersChars.find((clas) => clas.name() === character.type));
     });
 
     if (!playersCharsOnBoard) {
@@ -292,7 +308,6 @@ export default class GameController {
 
   checkForRecord() {
     const state = this.stateService.load();
-
     if (this.gameState.score > this.gameState.record) {
       this.gameState.record = this.gameState.score;
       state.record = this.gameState.record;
